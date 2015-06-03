@@ -21,6 +21,40 @@
 
 using namespace std;
 
+
+//	x = rand() % n  + 1; 
+
+//Bu
+/*
+int retornaVecinoAnterior(MPI_Group group, rank){
+	int cantidadProcesos,usedId;
+	MPI_Comm_size(MPI_COMM_WORLD, &cantidadProcesos);
+	int i=rank-1;
+
+	while (i!=0){
+		MPI_Group_rank(group,&usedId);
+		if &
+
+	}
+
+
+
+}*/
+
+void inicializaListaPos(int *lista, int tam){
+	for (int i=0;i<tam;i++){
+		lista[i]=1;
+	}
+}
+
+void creaSubMundo(){
+	//todavia no hace nada
+}
+
+int numeroAleatorio(int tope){
+	return rand()%tope+1;
+}
+
 //Valida que la entrada sea numerica
 //retorna 0 y guarda la entrada en entradaPrograma si la entrada es numero
 //retorna 1 si hay falla
@@ -112,62 +146,210 @@ int main(int argc, char **argv) {
 		exit(1);
 	}
 
-	int myrank, size, tag=99;
+	int         my_rank;       // Rank del proceso
+    int         cantidadDeProcesos;             // Numero de procesos
+    int         source;        // Rank del que envia
+    int         dest;          // Rank del que recibe
+    int         tag = 0;       // Tag del mensaje
+    //int        message[1];  // Mensaje
+    MPI_Status  status;
 
-	const int largo = 10000;
-	
-	MPI_Status status;
+    double   start,stop;
 
-	MPI_Init(&argc, &argv);
-	
-	MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
-	MPI_Comm_size(MPI_COMM_WORLD, &size);
-	if (myrank==0){
-		
-		int matriz [size-1][largo], total=0,sumaParcial=0;
-		
-		for (int i=0; i<size-1;i++){
-			
-			for (int z=0; z<largo;z++){
-				matriz[i][z]=i+1;
-			}
-		}
+    /* Inicio */
+    MPI_Init(&argc, &argv);
 
-		for (int pid=1; pid<size;pid++){
-			MPI_Send(&matriz[pid-1],largo,MPI_INT, pid, tag, MPI_COMM_WORLD/*comunicador comun*/);
-		}
+    /* Averiguando el Rank del proceso */
+    MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
+
+    /* Averiguando el numero de procesos que participan */
+    MPI_Comm_size(MPI_COMM_WORLD, &cantidadDeProcesos);
+
+    int 	message[cantidadDeProcesos];  // Lista que contiene todos los procesos disponibles 1 disponible 0 no existe
+    int 	capsula[2]; //primer elemento es el valor del token, el segundo, si es 1 hay que realizar broadcast, el tercero es un contador, cada proceso que reciba la capsula le sumar
+    int 	tokenParcial;
+    MPI_Comm grid_comm;
+	int dim_sizes[1];
+	int wrap_around[1];
+	int reorder = 1;
+	dim_sizes[0] = 1;
+	wrap_around[0] = 1; 
 
 
-		//int mensaje=5, destinatario=1;
-		//MPI_Send(&mensaje,1,MPI_INT, destinatario, tag, MPI_COMM_WORLD/*comunicador comun*/);
+    /* Hasta que todos los procesos no lleguen hasta aqui ninguno continua */
 
-		for (int pid=1; pid<size;pid++){
-			MPI_Recv(&sumaParcial, 1, MPI_INT, pid, tag, MPI_COMM_WORLD, &status);
-			total+=sumaParcial;
-		}
-		cout << "total es: "<< total << endl;
+    //crea un comunicador lineal periodico a partir de MPI_COMM_WORLD
+	MPI_Cart_create(MPI_COMM_WORLD, 2, dim_sizes,wrap_around, reorder, &grid_comm);
+	MPI_Barrier(MPI_COMM_WORLD);    
+	start = MPI_Wtime();
+    inicializaListaPos(message,cantidadDeProcesos);
+    if (my_rank==0){
+    	tokenParcial=token-numeroAleatorio(token);
+ 		
+ 		if (tokenParcial<0){
+ 			cout <<"proceso "<<my_rank<<" tiene la papa con valor "<<tokenParcial<<" (proceso" <<my_rank<<" sale del juego)" << endl;
+ 			//le envia el token al vecino
+ 			//capsula[0]=tokenParcial;
+ 			//capsula[1]=1;
+ 			//MPI_Send(capsula,2,MPI_INT, my_rank+1, tag, MPI_COMM_WORLD/*comunicador comun*/);
+ 			message[my_rank]=0;
+ 			MPI_Bcast(message, cantidadDeProcesos, MPI_INT, 0, MPI_COMM_WORLD);
+ 		}
+
+ 		else{
+ 			cout <<"proceso "<<my_rank<<" tiene la papa con valor "<<tokenParcial<< endl;
+ 			message[my_rank]=0;
+ 			MPI_Bcast(message, cantidadDeProcesos, MPI_INT, 0, MPI_COMM_WORLD);
+ 			//MPI_Send(&tokenParcial,1,MPI_INT, my_rank+1, tag, MPI_COMM_WORLD/*comunicador comun*/);
+ 		}
+
+    //MPI_Bcast(message, cantidadDeProcesos, MPI_INT, 0, MPI_COMM_WORLD);
+
+    //MPI_Bcast(message, cantidadDeProcesos, MPI_INT, 0, MPI_COMM_WORLD);
 	}
 
 	else{
-
-		int buzon [largo], padre=0,suma=0;
-		//MPI_Status status;
-
-		MPI_Recv(buzon, largo, MPI_INT, padre, tag, MPI_COMM_WORLD, &status);
-		
-		for (int i=0; i<largo;i++){
-			suma+=buzon[i];
-		}
-
-		MPI_Send(&suma,1,MPI_INT, padre, tag, MPI_COMM_WORLD/*comunicador comun*/);		
-
-		//cout << "Mensaje recibido: " << buzon << endl;
+	//MPI_Recv(capsula, 2, MPI_INT, 0, tag, MPI_COMM_WORLD, &status);
+    MPI_Bcast(message, cantidadDeProcesos, MPI_INT, 0, MPI_COMM_WORLD);
 	}
+
+    //while(true){
+    //}
+
+    //if (my_rank != 0)
+	printf("Mi mensaje es '%d' Y yo soy el proceso %d y lo estoy recibiendo.\n",message[0],my_rank);
+
+    MPI_Barrier(MPI_COMM_WORLD);  // Espero a que todos los procesos terminen para calcular el tiempo de finalizacion.
+    stop = MPI_Wtime();
+
+    if (my_rank == 0){
+       printf("Tiempo empleado: %g\n",stop-start);
+    }
+
+    MPI_Finalize();
+
+}
+
+// 	/*Variables globales*/
+// 	int myrank, cantidadProcesos, tag=100, rankUtilizado,tokenParcial;
+// 	int *mensaje,procesoExcluido[1];
+// 	mensaje = (int *) malloc (1* sizeof ( int));
+
+// 	const int largo = 10000;
+
+// 	bool inicio=true;
+	
+// 	MPI_Status status;
+
+// 	/*------------------*/
+
+// 	//Inicializacion trabajo openMPI
+// 	MPI_Init(&argc, &argv);
+// 	MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
+// 	MPI_Comm_size(MPI_COMM_WORLD, &cantidadProcesos);
+
+// 	MPI_Comm  comm_world, comm_worker;
+//   	MPI_Group group_world, group_worker;
+//   	int ierr;
+
+// 	//int *will_use,num_used;
+// 	//MPI_Comm TIMS_COMM_WORLD;
+// 	//MPI_Group new_group,old_group;
+
+// 	if (myrank==0 && inicio==true){
+// 		inicio=false;
+// 		tokenParcial=token-numeroAleatorio(token);
+// 		if (tokenParcial<0){
+// 			cout <<"proceso "<<myrank<<" tiene la papa con valor "<<tokenParcial<<" (proceso" <<myrank<<" sale del juego)" << endl;
+			
+// 			comm_world = MPI_COMM_WORLD;
+//   			MPI_Comm_group(comm_world, &group_world);
+//   			mensaje[0]=myrank;
+//   			procesoExcluido[0]=myrank;
+//   			//int message=myrank;
+//   			MPI_Group_excl(group_world, 1, procesoExcluido, &group_worker);  /* process 0 not member */
+//   			MPI_Comm_create(comm_world, group_worker, &comm_worker); //se sobreEscribe el comunicador global por el nuevo menos el de rango actual
+// 			//sprintf(message, "%d",myrank);
+// 			MPI_Bcast(mensaje, 1, MPI_INT, myrank, comm_worker);
+// 			//MPI_Bcast(numeroNoParticipa,1,MPI_INT,tag,TIMS_COMM_WORLD);
+
+// 			//MPI_Send(myrank+1,1,MPI_INT, rank, tag, TIMS_COMM_WORLD/*comunicador comun*/);
+
+// 		}//fin if (tokenParcial<0)
+
+// 		else{
+// 			cout <<"proceso "<<myrank<<" tiene la papa con valor "<<tokenParcial<< endl;
+// 			mensaje[0]=100;
+// 			comm_world = MPI_COMM_WORLD;
+// 			MPI_Bcast(mensaje, 1, MPI_INT, myrank, comm_world);
+// 			//Se lo envio al siguiente
+// 			//MPI_Send(myrank+1,1,MPI_INT, rank, tag, TIMS_COMM_WORLD/*comunicador comun*/);
+
+// 		}
+
+// 	}
+
+// 	MPI_Bcast(mensaje, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+// 	MPI_Barrier(MPI_COMM_WORLD);  // Espero a que todos los procesos terminen para calcular el tiempo de finalizacion.
+
+
+// 	cout <<"soy el rank " << myrank << "me llego el mensaje: " << mensaje << endl;
+
+// 		MPI_Finalize();
+
+// 	return 0;
+
+// }
+
+	// if (myrank==turno){
+	// 	//pasa algo
+	// }
+
+		
+	// 	int matriz [size-1][largo], total=0,sumaParcial=0;
+		
+	// 	for (int i=0; i<size-1;i++){
+			
+	// 		for (int z=0; z<largo;z++){
+	// 			matriz[i][z]=i+1;
+	// 		}
+	// 	}
+
+	// 	for (int pid=1; pid<size;pid++){
+	// 		MPI_Send(&matriz[pid-1],largo,MPI_INT, pid, tag, MPI_COMM_WORLD/*comunicador comun*/);
+	// 	}
+
+
+	// 	//int mensaje=5, destinatario=1;
+	// 	//MPI_Send(&mensaje,1,MPI_INT, destinatario, tag, MPI_COMM_WORLD/*comunicador comun*/);
+
+	// 	for (int pid=1; pid<size;pid++){
+	// 		MPI_Recv(&sumaParcial, 1, MPI_INT, pid, tag, MPI_COMM_WORLD, &status);
+	// 		total+=sumaParcial;
+	// 	}
+	// 	cout << "total es: "<< total << endl;
+	// }
+
+	// else{
+
+	// 	int buzon [largo], padre=0,suma=0;
+	// 	//MPI_Status status;
+
+	// 	MPI_Recv(buzon, largo, MPI_INT, padre, tag, MPI_COMM_WORLD, &status);
+		
+	// 	for (int i=0; i<largo;i++){
+	// 		suma+=buzon[i];
+	// 	}
+
+	// 	MPI_Send(&suma,1,MPI_INT, padre, tag, MPI_COMM_WORLD/*comunicador comun*/);		
+
+	// 	//cout << "Mensaje recibido: " << buzon << endl;
 	
 	
-	MPI_Finalize();
+/*	MPI_Finalize();
 
 	return 0;
 
 //mpiexec -np 10 ./ejemplo.exe
-}
+}*/
