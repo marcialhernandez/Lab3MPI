@@ -311,9 +311,9 @@ int main(int argc, char **argv) {
 					//if condicion de escritura
 					listaProcesosDisponibles[myrank]=0; //mi proceso sale del juego !!
 					listaProcesosDisponibles[cantidadProcesosActivos]=listaProcesosDisponibles[cantidadProcesosActivos]-1;
-						if (listaProcesosDisponibles[cantidadProcesosActivos]!=1){
+						//if (listaProcesosDisponibles[cantidadProcesosActivos]!=1){
 						cout <<"proceso "<<myrank<<" tiene la papa con valor "<<listaProcesosDisponibles[valorTokenViajero]<< " (sale del juego)" << endl;
-						}
+						//}
 					}
 				
 				else{
