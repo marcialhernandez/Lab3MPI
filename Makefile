@@ -1,4 +1,4 @@
-executable:=hotpotato2
+executable:=hotpotato12
 library:=libtest
 
 tmp:=./tmp

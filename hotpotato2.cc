@@ -265,7 +265,17 @@ int main(int argc, char **argv) {
 
  		MPI_Pack(capsula, 3, MPI_INT, buffer, tamBuffer, &position, MPI_COMM_WORLD);
 		MPI_Pack(listaProcesosDisponibles, cantidadDeProcesos, MPI_INT, buffer, tamBuffer, &position, MPI_COMM_WORLD);
-		MPI_Send(buffer,tamBuffer,MPI_PACKED, my_rank+1, tag, MPI_COMM_WORLD/*comunicador comun*/);
+
+		if (cantidadDeProcesos>1){
+
+			MPI_Send(buffer,tamBuffer,MPI_PACKED, my_rank+1, tag, MPI_COMM_WORLD/*comunicador comun*/);
+
+		}
+
+		else{
+			MPI_Send(buffer,tamBuffer,MPI_PACKED, my_rank, tag, MPI_COMM_WORLD/*comunicador comun*/);
+		}
+
  	}//fin if (my_rank==0)
 
  	MPI_Barrier(MPI_COMM_WORLD);  // Espero a que todos los procesos terminen para calcular el tiempo de finalizacion.
