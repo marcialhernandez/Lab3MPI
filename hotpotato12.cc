@@ -61,6 +61,8 @@ int dimeElVecinoDer(int rankActual,int cantidadProcesos){
 	}
 }
 
+//Hay ganador! = true
+//No hay ganador! = false
 bool checkGanador(int *lista, int tam){
 	int contadorParticipantes=0;
 	for (int i=0;i<tam;i++){
@@ -241,14 +243,9 @@ int main(int argc, char **argv) {
 	}
 
 	int myrank, cantidadDeProcesos, leftid, rightid;
-	const int tamListaProcesos=cantidadDeProcesos+2;
-  	const int valorTokenViajero=cantidadDeProcesos;
-  	const int valorTurno=cantidadDeProcesos+1;
-  	int listaProcesosDisponibles[valorTurno],mensajeTag=0,contador=0; //contador de momento limitara el while true
+  	int mensajeTag=0;
   	MPI_Status recv_status, send_status;
   	MPI_Request send_request;
-
-  listaProcesosDisponibles[valorTurno]=0; //se inicializa el listaProcesosDisponibles en 0 para que empiece el proceso 0 el juego
   
   /*----------------*/
   /* Initialize MPI */
@@ -269,29 +266,65 @@ int main(int argc, char **argv) {
 
   if ((leftid=(myrank-1)) < 0) leftid = cantidadDeProcesos-1;
   if ((rightid=(myrank+1)) == cantidadDeProcesos) rightid = 0;
-  
-  /*---------------------------------------------------------------------*/
-  /* Send the process rank stored as val to the process on my right and  */
-  /* receive a process rank from the process on my left and store as tmp */
-  /*---------------------------------------------------------------------*/
 
-  while(contador!=10){
+  //////////////////////////////////
+
+  //Declaracion de variables para iniciar el juego
+
+  const int tamListaProcesos=cantidadDeProcesos+2;
+  const int valorTokenViajero=cantidadDeProcesos;
+  const int valorTurno=cantidadDeProcesos+1;
+  int listaProcesosDisponibles[valorTurno], contador=0; //contador de momento limitara el while true
+  if (myrank==0){
+  inicializaListaPos(listaProcesosDisponibles,cantidadDeProcesos);
+	}
+  listaProcesosDisponibles[valorTurno]=0; //se inicializa el listaProcesosDisponibles en 0 para que empiece el proceso 0 el juego
+  listaProcesosDisponibles[valorTokenViajero]=token;
+
+  //////////////////////////////////
+  
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  //Antes de entrar al ciclo, se debe asegurar que todos los procesos hayan preasignado los anteriores valores
+
+  while(true){
 
   	if (listaProcesosDisponibles[valorTurno]==myrank){
 		listaProcesosDisponibles[valorTurno]=rightid;
+
+		if (listaProcesosDisponibles[myrank]==1){ //Si es que estoy habilitado para jugar
+			if (listaProcesosDisponibles[valorTokenViajero]<0){ //Tengo que empezar el juego de nuevo!
+				listaProcesosDisponibles[valorTokenViajero]=token-numeroAleatorio(token);
+				cout <<"proceso "<<myrank<<" tiene la papa con valor "<<listaProcesosDisponibles[valorTokenViajero]<< endl;
+			}
+
+			else{ //Tengo que restar un numero aleatorio al tokenViajero
+				listaProcesosDisponibles[valorTokenViajero]=listaProcesosDisponibles[valorTokenViajero]-numeroAleatorio(token);
+				if (listaProcesosDisponibles[valorTokenViajero]<0){ //Si el valor quedo negativo
+					listaProcesosDisponibles[myrank]=0; //mi proceso sale del juego !!
+					cout <<"proceso "<<myrank<<" tiene la papa con valor "<<listaProcesosDisponibles[valorTokenViajero]<< " (sale del juego)" << endl;
+
+				}
+				else{
+					cout <<"proceso "<<myrank<<" tiene la papa con valor "<<listaProcesosDisponibles[valorTokenViajero]<< endl;
+				}
+
+			}
+		}
+
   		MPI_Issend(listaProcesosDisponibles,tamListaProcesos,MPI_INT,rightid,mensajeTag,MPI_COMM_WORLD,&send_request);
   	}
 
-  	if (contador!=9){ //Mientras sea distinta a la condicion de borde
+  	if (contador!=9){ //Mientras sea distinta a la condicion de borde, seguire recibiendo
   		MPI_Recv(listaProcesosDisponibles,tamListaProcesos,MPI_INT,leftid,mensajeTag,MPI_COMM_WORLD,&recv_status);
   	}
 
     if (listaProcesosDisponibles[valorTurno]==leftid){
     MPI_Wait(&send_request,&send_status);
 	}
-    printf("Proc %d recibe variable listaProcesosDisponibles = %d \n", myrank, listaProcesosDisponibles[valorTurno]);
+    //printf("Proc %d recibe variable listaProcesosDisponibles = %d \n", myrank, listaProcesosDisponibles[valorTurno]);
 
-    if (contador==9){
+    if (contador==9){ //Si se cumple la condicion de borde
     	break;
     }
 
