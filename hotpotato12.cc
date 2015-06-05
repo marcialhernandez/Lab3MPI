@@ -85,16 +85,16 @@ void inicializaListaPos(int *lista, int tam){
 }
 
 //Deja los resultados en capsula
-//capsula[1]=izquierda
-//capsula[2]=derecha
-void analizaListaProcesos(int * listaProcesos,int tamListaProcesos, int * capsula,int rank,int cantidadProcesos){
+//capsula[0]=izquierda
+//capsula[1]=derecha
+void obtieneIzqAndDer(int * listaProcesos,int tamListaProcesos, int * capsula,int rank,int cantidadProcesos){
 	//calculaIzquierda
 	bool banderaIzquierdaAusente=true;
 	bool banderaDerechaAusente=true;
 	bool banderaUnico=true;
 	for (int i=rank;i>-1;i--){
 		if (listaProcesos[i]==1){
-			capsula[1]=i;
+			capsula[0]=i;
 			banderaIzquierdaAusente=false;
 			banderaUnico=false;
 			break;
@@ -104,7 +104,7 @@ void analizaListaProcesos(int * listaProcesos,int tamListaProcesos, int * capsul
 	if (banderaIzquierdaAusente==true){
 		for (int i=cantidadProcesos-1;i>rank;i--){
 			if (listaProcesos[i]==1){
-				capsula[1]=i;
+				capsula[0]=i;
 				banderaUnico=false;
 				break;
 			}
@@ -114,15 +114,15 @@ void analizaListaProcesos(int * listaProcesos,int tamListaProcesos, int * capsul
 	}//fin if
 
 	if (banderaUnico==true){
+		capsula[0]=rank;
 		capsula[1]=rank;
-		capsula[2]=rank;
 	}//fin if
 
 	else{ //Si no es unico, implica que existe una derecha distinta a la izquierda
 		//calcula derecha
 		for (int i=rank;i<cantidadProcesos;i++){
 			if (listaProcesos[i]==1){
-				capsula[1]=i;
+				capsula[0]=i;
 				banderaDerechaAusente=false;
 				break;
 			} 
@@ -133,7 +133,7 @@ void analizaListaProcesos(int * listaProcesos,int tamListaProcesos, int * capsul
 			//significa que hay que darse la vuelta
 			for (int i=0;i<rank;i++){
 				if (listaProcesos[i]==1){
-					capsula[1]=i;
+					capsula[0]=i;
 					break;
 				} 
 
@@ -242,7 +242,7 @@ int main(int argc, char **argv) {
 		exit(1);
 	}
 
-	int myrank, cantidadDeProcesos, leftid, rightid;
+	int myrank, cantidadDeProcesos,vecino[2];
   	int mensajeTag=0;
   	MPI_Status recv_status, send_status;
   	MPI_Request send_request;
@@ -264,13 +264,17 @@ int main(int argc, char **argv) {
   /* Find out neighbors */
   /*--------------------*/
 
-  if ((leftid=(myrank-1)) < 0) leftid = cantidadDeProcesos-1;
-  if ((rightid=(myrank+1)) == cantidadDeProcesos) rightid = 0;
+  //if ((leftid=(myrank-1)) < 0) leftid = cantidadDeProcesos-1;
+  //if ((rightid=(myrank+1)) == cantidadDeProcesos) rightid = 0;
 
   //////////////////////////////////
 
   //Declaracion de variables para iniciar el juego
 
+  const int izquierdo=0;
+  const int derecho=1;
+  if ((vecino[izquierdo]=(myrank-1)) < 0) vecino[izquierdo] = cantidadDeProcesos-1;
+  if ((vecino[derecho]=(myrank+1)) == cantidadDeProcesos) vecino[derecho] = 0;
   const int tamListaProcesos=cantidadDeProcesos+2;
   const int valorTokenViajero=cantidadDeProcesos;
   const int valorTurno=cantidadDeProcesos+1;
@@ -290,7 +294,7 @@ int main(int argc, char **argv) {
   while(true){
 
   	if (listaProcesosDisponibles[valorTurno]==myrank){
-		listaProcesosDisponibles[valorTurno]=rightid;
+		listaProcesosDisponibles[valorTurno]=vecino[derecho];
 
 		if (listaProcesosDisponibles[myrank]==1){ //Si es que estoy habilitado para jugar
 			if (listaProcesosDisponibles[valorTokenViajero]<0){ //Tengo que empezar el juego de nuevo!
@@ -312,14 +316,14 @@ int main(int argc, char **argv) {
 			}
 		}
 
-  		MPI_Issend(listaProcesosDisponibles,tamListaProcesos,MPI_INT,rightid,mensajeTag,MPI_COMM_WORLD,&send_request);
+  		MPI_Issend(listaProcesosDisponibles,tamListaProcesos,MPI_INT,vecino[derecho],mensajeTag,MPI_COMM_WORLD,&send_request);
   	}
 
   	if (contador!=9){ //Mientras sea distinta a la condicion de borde, seguire recibiendo
-  		MPI_Recv(listaProcesosDisponibles,tamListaProcesos,MPI_INT,leftid,mensajeTag,MPI_COMM_WORLD,&recv_status);
+  		MPI_Recv(listaProcesosDisponibles,tamListaProcesos,MPI_INT,vecino[izquierdo],mensajeTag,MPI_COMM_WORLD,&recv_status);
   	}
 
-    if (listaProcesosDisponibles[valorTurno]==leftid){
+    if (listaProcesosDisponibles[valorTurno]==vecino[izquierdo]){
     MPI_Wait(&send_request,&send_status);
 	}
     //printf("Proc %d recibe variable listaProcesosDisponibles = %d \n", myrank, listaProcesosDisponibles[valorTurno]);
