@@ -279,13 +279,14 @@ int main(int argc, char **argv) {
   const int valorTokenViajero=cantidadDeProcesos;
   const int valorTurno=cantidadDeProcesos+1;
   const int cantidadProcesosActivos=cantidadDeProcesos+2;
-  int listaProcesosDisponibles[valorTurno], vidaProceso=10; //contador de momento limitara el while true
+  int listaProcesosDisponibles[valorTurno], vidaProceso; //contador de momento limitara el while true
   if (myrank==0){
   inicializaListaPos(listaProcesosDisponibles,cantidadDeProcesos);
 	}
   listaProcesosDisponibles[valorTurno]=0; //se inicializa el listaProcesosDisponibles en 0 para que empiece el proceso 0 el juego
   listaProcesosDisponibles[valorTokenViajero]=token;
   listaProcesosDisponibles[cantidadProcesosActivos]=cantidadDeProcesos;
+  vidaProceso=listaProcesosDisponibles[cantidadProcesosActivos];
 
   //////////////////////////////////
   
@@ -293,12 +294,12 @@ int main(int argc, char **argv) {
 
   //Antes de entrar al ciclo, se debe asegurar que todos los procesos hayan preasignado los anteriores valores
 
-  while(true){
+  while(cantidadDeProcesos!=1){
 
   	if (listaProcesosDisponibles[valorTurno]==myrank){
 		listaProcesosDisponibles[valorTurno]=vecino[derecho];
 
-		if (listaProcesosDisponibles[myrank]==1&&listaProcesosDisponibles[cantidadProcesosActivos]>1){ //Si es que estoy habilitado para jugar
+		if (listaProcesosDisponibles[myrank]==1&&vidaProceso!=1){ //Si es que estoy habilitado para jugar
 			if (listaProcesosDisponibles[valorTokenViajero]<0){ //Tengo que empezar el juego de nuevo!
 				listaProcesosDisponibles[valorTokenViajero]=token-numeroAleatorio(token);
 				cout <<"proceso "<<myrank<<" tiene la papa con valor "<<listaProcesosDisponibles[valorTokenViajero]<< endl;
@@ -325,7 +326,7 @@ int main(int argc, char **argv) {
   		MPI_Issend(listaProcesosDisponibles,tamListaProcesos,MPI_INT,vecino[derecho],mensajeTag,MPI_COMM_WORLD,&send_request);
   	}
 
-  	if (vidaProceso!=0){ //Mientras sea distinta a la condicion de borde, seguire recibiendo
+  	if (vidaProceso!=1){ //Mientras sea distinta a la condicion de borde, seguire recibiendo
   		MPI_Recv(listaProcesosDisponibles,tamListaProcesos,MPI_INT,vecino[izquierdo],mensajeTag,MPI_COMM_WORLD,&recv_status);
   	}
 
@@ -337,11 +338,12 @@ int main(int argc, char **argv) {
 	}
     //printf("Proc %d recibe variable listaProcesosDisponibles = %d \n", myrank, listaProcesosDisponibles[valorTurno]);
 
-    if (vidaProceso==0){ //Si se cumple la condicion de borde
+    if (vidaProceso==1){ //Si se cumple la condicion de borde
     	break;
     }
 
-    vidaProceso--;
+    //vidaProceso--;
+    vidaProceso=listaProcesosDisponibles[cantidadProcesosActivos];
   }
 
   MPI_Barrier(MPI_COMM_WORLD);
