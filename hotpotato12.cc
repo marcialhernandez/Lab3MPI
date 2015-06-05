@@ -275,15 +275,17 @@ int main(int argc, char **argv) {
   const int derecho=1;
   if ((vecino[izquierdo]=(myrank-1)) < 0) vecino[izquierdo] = cantidadDeProcesos-1;
   if ((vecino[derecho]=(myrank+1)) == cantidadDeProcesos) vecino[derecho] = 0;
-  const int tamListaProcesos=cantidadDeProcesos+2;
+  const int tamListaProcesos=cantidadDeProcesos+3;
   const int valorTokenViajero=cantidadDeProcesos;
   const int valorTurno=cantidadDeProcesos+1;
-  int listaProcesosDisponibles[valorTurno], contador=0; //contador de momento limitara el while true
+  const int cantidadProcesosActivos=cantidadDeProcesos+2;
+  int listaProcesosDisponibles[valorTurno], vidaProceso=10; //contador de momento limitara el while true
   if (myrank==0){
   inicializaListaPos(listaProcesosDisponibles,cantidadDeProcesos);
 	}
   listaProcesosDisponibles[valorTurno]=0; //se inicializa el listaProcesosDisponibles en 0 para que empiece el proceso 0 el juego
   listaProcesosDisponibles[valorTokenViajero]=token;
+  listaProcesosDisponibles[cantidadProcesosActivos]=cantidadDeProcesos;
 
   //////////////////////////////////
   
@@ -296,7 +298,7 @@ int main(int argc, char **argv) {
   	if (listaProcesosDisponibles[valorTurno]==myrank){
 		listaProcesosDisponibles[valorTurno]=vecino[derecho];
 
-		if (listaProcesosDisponibles[myrank]==1){ //Si es que estoy habilitado para jugar
+		if (listaProcesosDisponibles[myrank]==1&&listaProcesosDisponibles[cantidadProcesosActivos]>1){ //Si es que estoy habilitado para jugar
 			if (listaProcesosDisponibles[valorTokenViajero]<0){ //Tengo que empezar el juego de nuevo!
 				listaProcesosDisponibles[valorTokenViajero]=token-numeroAleatorio(token);
 				cout <<"proceso "<<myrank<<" tiene la papa con valor "<<listaProcesosDisponibles[valorTokenViajero]<< endl;
@@ -305,10 +307,14 @@ int main(int argc, char **argv) {
 			else{ //Tengo que restar un numero aleatorio al tokenViajero
 				listaProcesosDisponibles[valorTokenViajero]=listaProcesosDisponibles[valorTokenViajero]-numeroAleatorio(token);
 				if (listaProcesosDisponibles[valorTokenViajero]<0){ //Si el valor quedo negativo
+					//if condicion de escritura
 					listaProcesosDisponibles[myrank]=0; //mi proceso sale del juego !!
-					cout <<"proceso "<<myrank<<" tiene la papa con valor "<<listaProcesosDisponibles[valorTokenViajero]<< " (sale del juego)" << endl;
-
-				}
+					listaProcesosDisponibles[cantidadProcesosActivos]=listaProcesosDisponibles[cantidadProcesosActivos]-1;
+						if (listaProcesosDisponibles[cantidadProcesosActivos]!=1){
+						cout <<"proceso "<<myrank<<" tiene la papa con valor "<<listaProcesosDisponibles[valorTokenViajero]<< " (sale del juego)" << endl;
+						}
+					}
+				
 				else{
 					cout <<"proceso "<<myrank<<" tiene la papa con valor "<<listaProcesosDisponibles[valorTokenViajero]<< endl;
 				}
@@ -319,25 +325,36 @@ int main(int argc, char **argv) {
   		MPI_Issend(listaProcesosDisponibles,tamListaProcesos,MPI_INT,vecino[derecho],mensajeTag,MPI_COMM_WORLD,&send_request);
   	}
 
-  	if (contador!=9){ //Mientras sea distinta a la condicion de borde, seguire recibiendo
+  	if (vidaProceso!=0){ //Mientras sea distinta a la condicion de borde, seguire recibiendo
   		MPI_Recv(listaProcesosDisponibles,tamListaProcesos,MPI_INT,vecino[izquierdo],mensajeTag,MPI_COMM_WORLD,&recv_status);
   	}
 
+  	//MPI_Recv(listaProcesosDisponibles,tamListaProcesos,MPI_INT,vecino[izquierdo],mensajeTag,MPI_COMM_WORLD,&recv_status);
+
     if (listaProcesosDisponibles[valorTurno]==vecino[izquierdo]){
-    MPI_Wait(&send_request,&send_status);
+
+    	MPI_Wait(&send_request,&send_status);
 	}
     //printf("Proc %d recibe variable listaProcesosDisponibles = %d \n", myrank, listaProcesosDisponibles[valorTurno]);
 
-    if (contador==9){ //Si se cumple la condicion de borde
+    if (vidaProceso==0){ //Si se cumple la condicion de borde
     	break;
     }
 
-    contador++;
+    vidaProceso--;
   }
-  /*-----------------------*/
-  /* Exit and finalize MPI */
-  /*-----------------------*/
 
-  MPI_Finalize();
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  if (myrank==0){
+   	  for (int i=0;i<cantidadDeProcesos;i++){
+   	  	if (listaProcesosDisponibles[i]==1){
+   	  		cout << "proceso " << i <<" fue el ganador!!"<<endl;
+   	  	}
+   	  }
+
+  }
+
+	MPI_Finalize();
 
 }
