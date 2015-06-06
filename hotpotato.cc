@@ -1,3 +1,22 @@
+/*
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * Copyright (C) Marcial Hernandez Sanchez, 2015
+ * University of Santiago, Chile (Usach) 
+ */
+
 //MPI
 #include <mpi.h>
 //C
@@ -16,30 +35,7 @@
 #include <math.h>
 #include <vector>
 
-//Instruccion para compilar en consola
-//mpic++ -W -Wall main.cc -o  casa
-
 using namespace std;
-
-
-//	x = rand() % n  + 1; 
-
-//Bu
-/*
-int retornaVecinoAnterior(MPI_Group group, rank){
-	int cantidadProcesos,usedId;
-	MPI_Comm_size(MPI_COMM_WORLD, &cantidadProcesos);
-	int i=rank-1;
-
-	while (i!=0){
-		MPI_Group_rank(group,&usedId);
-		if &
-
-	}
-
-
-
-}*/
 
 void inicializaListaPos(int *lista, int tam){
 	for (int i=0;i<tam;i++){
@@ -47,9 +43,6 @@ void inicializaListaPos(int *lista, int tam){
 	}
 }
 
-void creaSubMundo(){
-	//todavia no hace nada
-}
 
 int numeroAleatorio(int tope){
 	return rand()%tope+1;
@@ -90,6 +83,11 @@ bool recibeArgumentosConsola(const char * opciones,int argc, char **argv, int *t
 					  bandera_t++; 
 
 					  banderaErrorParametros = banderaErrorParametros + isNumber(optarg, token);
+
+					  if (*token==0){ //Necesariamente el token tiene que ser mayor que 0
+					  	banderaErrorParametros++;
+					  }
+					  
 				  }
 				  else{
 					  banderaErrorBanderas++;						
@@ -135,7 +133,7 @@ bool recibeArgumentosConsola(const char * opciones,int argc, char **argv, int *t
 
 int main(int argc, char **argv) {
 
-	int token=0;
+	int token=0,cantidadDeProcesos,idProceso,vecino[2],mensajeTag=0;
 
 	/* Una cadena que lista las opciones cortas válidas para getOpt
 	  Se inicia con : pues si falta algun argumento, enviara un caso tipo ":"" */
@@ -143,213 +141,124 @@ int main(int argc, char **argv) {
 	const char* const opciones = "t:";
 
 	if (recibeArgumentosConsola(opciones,argc, argv,&token) ==false){
-		exit(1);
+		return 0;
 	}
 
-	int         my_rank;       // Rank del proceso
-    int         cantidadDeProcesos;             // Numero de procesos
-    int         source;        // Rank del que envia
-    int         dest;          // Rank del que recibe
-    int         tag = 0;       // Tag del mensaje
-    //int        message[1];  // Mensaje
-    MPI_Status  status;
+  	MPI_Status recv_status, send_status;
+  	MPI_Request send_request;
 
-    double   start,stop;
+  //Inicializando MPI
 
-    /* Inicio */
-    MPI_Init(&argc, &argv);
+  MPI_Init(&argc, &argv);
+  MPI_Comm_rank(MPI_COMM_WORLD, &idProceso);
+  MPI_Comm_size(MPI_COMM_WORLD, &cantidadDeProcesos);
 
-    /* Averiguando el Rank del proceso */
-    MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
+  //////////////////////////////////
 
-    /* Averiguando el numero de procesos que participan */
-    MPI_Comm_size(MPI_COMM_WORLD, &cantidadDeProcesos);
+  //Declaracion de variables para iniciar el juego
 
-    int 	message[cantidadDeProcesos];  // Lista que contiene todos los procesos disponibles 1 disponible 0 no existe
-    int 	capsula[2]; //primer elemento es el valor del token, el segundo, si es 1 hay que realizar broadcast, el tercero es un contador, cada proceso que reciba la capsula le sumar
-    int 	tokenParcial;
-    MPI_Comm grid_comm;
-	int dim_sizes[1];
-	int wrap_around[1];
-	int reorder = 1;
-	dim_sizes[0] = 1;
-	wrap_around[0] = 1; 
+  const int izquierdo=0;
+  const int derecho=1;
+  //Asignado vecinos
+  if ((vecino[izquierdo]=(idProceso-1)) < 0) vecino[izquierdo] = cantidadDeProcesos-1;
+  if ((vecino[derecho]=(idProceso+1)) == cantidadDeProcesos) vecino[derecho] = 0;
+  const int tamListaProcesos=cantidadDeProcesos+3;
+  const int valorTokenViajero=cantidadDeProcesos;
+  const int valorTurno=cantidadDeProcesos+1;
+  const int cantidadProcesosActivos=cantidadDeProcesos+2;
+  int listaProcesosDisponibles[valorTurno], vidaProceso;
+  //Se aprovecha la variable listaProcesosDisponibles
+  //La pos de 0 a cantidadDeProcesos-1, contendran 1, que indica si el proceso puede seguir jugando o no
+  //La pos = cantidadDeProcesos indica el valor del tokenViajero
+  //La pos = cantidadDeProcesos+1 indica el valor del turno
+  //La pos = cantidadDeProcesos+2 indica la cantidad de procesos activos
+  if (idProceso==0){
+  inicializaListaPos(listaProcesosDisponibles,cantidadDeProcesos);
+	}
+  listaProcesosDisponibles[valorTurno]=0; //se inicializa el listaProcesosDisponibles en 0 para que empiece el proceso 0 el juego
+  listaProcesosDisponibles[valorTokenViajero]=token;
+  listaProcesosDisponibles[cantidadProcesosActivos]=cantidadDeProcesos;
+  vidaProceso=listaProcesosDisponibles[cantidadProcesosActivos];
+
+  //////////////////////////////////
+
+//Antes de entrar al ciclo, se debe asegurar que todos los procesos hayan preasignado los anteriores valores
+  
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  while(cantidadDeProcesos!=1){ //Parecido a un while true, pero si solo hay un proceso de entrada, no es necesario entrar al ciclo y se declara el ganador de forma automatica
+
+  	if (listaProcesosDisponibles[valorTurno]==idProceso){
+		listaProcesosDisponibles[valorTurno]=vecino[derecho];
+
+		if (listaProcesosDisponibles[idProceso]==1&&vidaProceso!=1){ //Si es que estoy habilitado para jugar
+			if (listaProcesosDisponibles[valorTokenViajero]<0){ //Tengo que empezar el juego de nuevo!
+				listaProcesosDisponibles[valorTokenViajero]=token-numeroAleatorio(token);
+				cout <<"proceso "<<idProceso<<" tiene la papa con valor "<<listaProcesosDisponibles[valorTokenViajero]<< endl;
+			}
+
+			else{ //Tengo que restar un numero aleatorio al tokenViajero
+				listaProcesosDisponibles[valorTokenViajero]=listaProcesosDisponibles[valorTokenViajero]-numeroAleatorio(token);
+				if (listaProcesosDisponibles[valorTokenViajero]<0){ //Si el valor quedo negativo
+					//if condicion de escritura
+					listaProcesosDisponibles[idProceso]=0; //mi proceso sale del juego !!
+					listaProcesosDisponibles[cantidadProcesosActivos]=listaProcesosDisponibles[cantidadProcesosActivos]-1;
+						//if (listaProcesosDisponibles[cantidadProcesosActivos]!=1){
+						cout <<"proceso "<<idProceso<<" tiene la papa con valor "<<listaProcesosDisponibles[valorTokenViajero]<< " (proceso "<<idProceso<< " sale del juego)" << endl;
+						//}
+					}
+				
+				else{
+					cout <<"proceso "<<idProceso<<" tiene la papa con valor "<<listaProcesosDisponibles[valorTokenViajero]<< endl;
+				}
+
+			}
+		}
+
+  		MPI_Issend(listaProcesosDisponibles,tamListaProcesos,MPI_INT,vecino[derecho],mensajeTag,MPI_COMM_WORLD,&send_request);
+  	}
+
+  	if (vidaProceso!=1){ //Mientras sea distinta a la condicion de borde, seguire recibiendo
+  		MPI_Recv(listaProcesosDisponibles,tamListaProcesos,MPI_INT,vecino[izquierdo],mensajeTag,MPI_COMM_WORLD,&recv_status);
+  	}
 
 
-    /* Hasta que todos los procesos no lleguen hasta aqui ninguno continua */
+    if (listaProcesosDisponibles[valorTurno]==vecino[izquierdo]){
 
-    //crea un comunicador lineal periodico a partir de MPI_COMM_WORLD
-	MPI_Cart_create(MPI_COMM_WORLD, 2, dim_sizes,wrap_around, reorder, &grid_comm);
-	MPI_Barrier(MPI_COMM_WORLD);    
-	start = MPI_Wtime();
-    inicializaListaPos(message,cantidadDeProcesos);
-    if (my_rank==0){
-    	tokenParcial=token-numeroAleatorio(token);
- 		
- 		if (tokenParcial<0){
- 			cout <<"proceso "<<my_rank<<" tiene la papa con valor "<<tokenParcial<<" (proceso" <<my_rank<<" sale del juego)" << endl;
- 			//le envia el token al vecino
- 			//capsula[0]=tokenParcial;
- 			//capsula[1]=1;
- 			//MPI_Send(capsula,2,MPI_INT, my_rank+1, tag, MPI_COMM_WORLD/*comunicador comun*/);
- 			message[my_rank]=0;
- 			MPI_Bcast(message, cantidadDeProcesos, MPI_INT, 0, MPI_COMM_WORLD);
- 		}
-
- 		else{
- 			cout <<"proceso "<<my_rank<<" tiene la papa con valor "<<tokenParcial<< endl;
- 			message[my_rank]=0;
- 			MPI_Bcast(message, cantidadDeProcesos, MPI_INT, 0, MPI_COMM_WORLD);
- 			//MPI_Send(&tokenParcial,1,MPI_INT, my_rank+1, tag, MPI_COMM_WORLD/*comunicador comun*/);
- 		}
-
-    //MPI_Bcast(message, cantidadDeProcesos, MPI_INT, 0, MPI_COMM_WORLD);
-
-    //MPI_Bcast(message, cantidadDeProcesos, MPI_INT, 0, MPI_COMM_WORLD);
+    	MPI_Wait(&send_request,&send_status);
 	}
 
-	else{
-	//MPI_Recv(capsula, 2, MPI_INT, 0, tag, MPI_COMM_WORLD, &status);
-    MPI_Bcast(message, cantidadDeProcesos, MPI_INT, 0, MPI_COMM_WORLD);
+	//Caso excepcional, para evitar Deadlock cuando solo juegan 2 procesos //
+	if (vidaProceso==1&&cantidadDeProcesos==2){
+		if (listaProcesosDisponibles[idProceso]==1){
+			//break;
+   	  		for (int i=0;i<cantidadDeProcesos;i++){
+   	  			if (listaProcesosDisponibles[i]==1){
+   	  				cout << "Proceso " << i <<" es el ganador"<<endl;
+   	  		}
+   	  	}
+  	}
+		return 0;
 	}
+	//////////////////////////////////////////////////////////////////////////
 
-    //while(true){
-    //}
-
-    //if (my_rank != 0)
-	printf("Mi mensaje es '%d' Y yo soy el proceso %d y lo estoy recibiendo.\n",message[0],my_rank);
-
-    MPI_Barrier(MPI_COMM_WORLD);  // Espero a que todos los procesos terminen para calcular el tiempo de finalizacion.
-    stop = MPI_Wtime();
-
-    if (my_rank == 0){
-       printf("Tiempo empleado: %g\n",stop-start);
+    if (vidaProceso==1){ //Si se cumple la condicion de borde
+    	break;
     }
+    vidaProceso=listaProcesosDisponibles[cantidadProcesosActivos];
 
-    MPI_Finalize();
+  }//Fin While (cantidadDeProcesos!=1)
 
-}
+  MPI_Barrier(MPI_COMM_WORLD);
 
-// 	/*Variables globales*/
-// 	int myrank, cantidadProcesos, tag=100, rankUtilizado,tokenParcial;
-// 	int *mensaje,procesoExcluido[1];
-// 	mensaje = (int *) malloc (1* sizeof ( int));
+  if (idProceso==0){
+   	  for (int i=0;i<cantidadDeProcesos;i++){
+   	  	if (listaProcesosDisponibles[i]==1){
+   	  		cout << "Proceso " << i <<" es el ganador"<<endl;
+   	  	}
+   	  }
+  }
 
-// 	const int largo = 10000;
-
-// 	bool inicio=true;
-	
-// 	MPI_Status status;
-
-// 	/*------------------*/
-
-// 	//Inicializacion trabajo openMPI
-// 	MPI_Init(&argc, &argv);
-// 	MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
-// 	MPI_Comm_size(MPI_COMM_WORLD, &cantidadProcesos);
-
-// 	MPI_Comm  comm_world, comm_worker;
-//   	MPI_Group group_world, group_worker;
-//   	int ierr;
-
-// 	//int *will_use,num_used;
-// 	//MPI_Comm TIMS_COMM_WORLD;
-// 	//MPI_Group new_group,old_group;
-
-// 	if (myrank==0 && inicio==true){
-// 		inicio=false;
-// 		tokenParcial=token-numeroAleatorio(token);
-// 		if (tokenParcial<0){
-// 			cout <<"proceso "<<myrank<<" tiene la papa con valor "<<tokenParcial<<" (proceso" <<myrank<<" sale del juego)" << endl;
-			
-// 			comm_world = MPI_COMM_WORLD;
-//   			MPI_Comm_group(comm_world, &group_world);
-//   			mensaje[0]=myrank;
-//   			procesoExcluido[0]=myrank;
-//   			//int message=myrank;
-//   			MPI_Group_excl(group_world, 1, procesoExcluido, &group_worker);  /* process 0 not member */
-//   			MPI_Comm_create(comm_world, group_worker, &comm_worker); //se sobreEscribe el comunicador global por el nuevo menos el de rango actual
-// 			//sprintf(message, "%d",myrank);
-// 			MPI_Bcast(mensaje, 1, MPI_INT, myrank, comm_worker);
-// 			//MPI_Bcast(numeroNoParticipa,1,MPI_INT,tag,TIMS_COMM_WORLD);
-
-// 			//MPI_Send(myrank+1,1,MPI_INT, rank, tag, TIMS_COMM_WORLD/*comunicador comun*/);
-
-// 		}//fin if (tokenParcial<0)
-
-// 		else{
-// 			cout <<"proceso "<<myrank<<" tiene la papa con valor "<<tokenParcial<< endl;
-// 			mensaje[0]=100;
-// 			comm_world = MPI_COMM_WORLD;
-// 			MPI_Bcast(mensaje, 1, MPI_INT, myrank, comm_world);
-// 			//Se lo envio al siguiente
-// 			//MPI_Send(myrank+1,1,MPI_INT, rank, tag, TIMS_COMM_WORLD/*comunicador comun*/);
-
-// 		}
-
-// 	}
-
-// 	MPI_Bcast(mensaje, 1, MPI_INT, 0, MPI_COMM_WORLD);
-
-// 	MPI_Barrier(MPI_COMM_WORLD);  // Espero a que todos los procesos terminen para calcular el tiempo de finalizacion.
-
-
-// 	cout <<"soy el rank " << myrank << "me llego el mensaje: " << mensaje << endl;
-
-// 		MPI_Finalize();
-
-// 	return 0;
-
-// }
-
-	// if (myrank==turno){
-	// 	//pasa algo
-	// }
-
-		
-	// 	int matriz [size-1][largo], total=0,sumaParcial=0;
-		
-	// 	for (int i=0; i<size-1;i++){
-			
-	// 		for (int z=0; z<largo;z++){
-	// 			matriz[i][z]=i+1;
-	// 		}
-	// 	}
-
-	// 	for (int pid=1; pid<size;pid++){
-	// 		MPI_Send(&matriz[pid-1],largo,MPI_INT, pid, tag, MPI_COMM_WORLD/*comunicador comun*/);
-	// 	}
-
-
-	// 	//int mensaje=5, destinatario=1;
-	// 	//MPI_Send(&mensaje,1,MPI_INT, destinatario, tag, MPI_COMM_WORLD/*comunicador comun*/);
-
-	// 	for (int pid=1; pid<size;pid++){
-	// 		MPI_Recv(&sumaParcial, 1, MPI_INT, pid, tag, MPI_COMM_WORLD, &status);
-	// 		total+=sumaParcial;
-	// 	}
-	// 	cout << "total es: "<< total << endl;
-	// }
-
-	// else{
-
-	// 	int buzon [largo], padre=0,suma=0;
-	// 	//MPI_Status status;
-
-	// 	MPI_Recv(buzon, largo, MPI_INT, padre, tag, MPI_COMM_WORLD, &status);
-		
-	// 	for (int i=0; i<largo;i++){
-	// 		suma+=buzon[i];
-	// 	}
-
-	// 	MPI_Send(&suma,1,MPI_INT, padre, tag, MPI_COMM_WORLD/*comunicador comun*/);		
-
-	// 	//cout << "Mensaje recibido: " << buzon << endl;
-	
-	
-/*	MPI_Finalize();
-
+	MPI_Finalize();
 	return 0;
-
-//mpiexec -np 10 ./ejemplo.exe
-}*/
+}
