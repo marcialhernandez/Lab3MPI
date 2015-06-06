@@ -312,7 +312,7 @@ int main(int argc, char **argv) {
 					listaProcesosDisponibles[myrank]=0; //mi proceso sale del juego !!
 					listaProcesosDisponibles[cantidadProcesosActivos]=listaProcesosDisponibles[cantidadProcesosActivos]-1;
 						//if (listaProcesosDisponibles[cantidadProcesosActivos]!=1){
-						cout <<"proceso "<<myrank<<" tiene la papa con valor "<<listaProcesosDisponibles[valorTokenViajero]<< " (sale del juego)" << endl;
+						cout <<"proceso "<<myrank<<" tiene la papa con valor "<<listaProcesosDisponibles[valorTokenViajero]<< " (proceso "<<myrank<< " sale del juego)" << endl;
 						//}
 					}
 				
@@ -351,7 +351,7 @@ int main(int argc, char **argv) {
   if (myrank==0){
    	  for (int i=0;i<cantidadDeProcesos;i++){
    	  	if (listaProcesosDisponibles[i]==1){
-   	  		cout << "proceso " << i <<" fue el ganador!!"<<endl;
+   	  		cout << "Proceso " << i <<" es el ganador"<<endl;
    	  	}
    	  }
 
