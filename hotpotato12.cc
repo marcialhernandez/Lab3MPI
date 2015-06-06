@@ -294,7 +294,7 @@ int main(int argc, char **argv) {
 
   //Antes de entrar al ciclo, se debe asegurar que todos los procesos hayan preasignado los anteriores valores
 
-  while(cantidadDeProcesos!=1){
+  while(cantidadDeProcesos!=1){ //Si hay mas de 1 proceso
 
   	if (listaProcesosDisponibles[valorTurno]==myrank){
 		listaProcesosDisponibles[valorTurno]=vecino[derecho];
@@ -323,7 +323,9 @@ int main(int argc, char **argv) {
 			}
 		}
 
+		//if (cantidadDeProcesos!=2&&vidaProceso!=1){
   		MPI_Issend(listaProcesosDisponibles,tamListaProcesos,MPI_INT,vecino[derecho],mensajeTag,MPI_COMM_WORLD,&send_request);
+  		//}
   	}
 
   	if (vidaProceso!=1){ //Mientras sea distinta a la condicion de borde, seguire recibiendo
@@ -338,9 +340,23 @@ int main(int argc, char **argv) {
 	}
     //printf("Proc %d recibe variable listaProcesosDisponibles = %d \n", myrank, listaProcesosDisponibles[valorTurno]);
 
+	if (vidaProceso==1&&cantidadDeProcesos==2){
+		if (listaProcesosDisponibles[myrank]==1){
+			//break;
+   	  		for (int i=0;i<cantidadDeProcesos;i++){
+   	  			if (listaProcesosDisponibles[i]==1){
+   	  				cout << "Proceso " << i <<" es el ganador"<<endl;
+   	  		}
+   	  	}
+  	}
+		return 0;
+	}
+
     if (vidaProceso==1){ //Si se cumple la condicion de borde
     	break;
     }
+
+
 
     //vidaProceso--;
     vidaProceso=listaProcesosDisponibles[cantidadProcesosActivos];
@@ -348,13 +364,13 @@ int main(int argc, char **argv) {
 
   MPI_Barrier(MPI_COMM_WORLD);
 
+
   if (myrank==0){
    	  for (int i=0;i<cantidadDeProcesos;i++){
    	  	if (listaProcesosDisponibles[i]==1){
    	  		cout << "Proceso " << i <<" es el ganador"<<endl;
    	  	}
    	  }
-
   }
 
 	MPI_Finalize();
