@@ -166,7 +166,7 @@ int main(int argc, char **argv) {
   const int valorTokenViajero=cantidadDeProcesos;
   const int valorTurno=cantidadDeProcesos+1;
   const int cantidadProcesosActivos=cantidadDeProcesos+2;
-  int listaProcesosDisponibles[valorTurno], vidaProceso;
+  int listaProcesosDisponibles[valorTurno], cantidadProcesosVivos;
   //Se aprovecha la variable listaProcesosDisponibles
   //La pos de 0 a cantidadDeProcesos-1, contendran 1, que indica si el proceso puede seguir jugando o no
   //La pos = cantidadDeProcesos indica el valor del tokenViajero
@@ -178,7 +178,7 @@ int main(int argc, char **argv) {
   listaProcesosDisponibles[valorTurno]=0; //se inicializa el listaProcesosDisponibles en 0 para que empiece el proceso 0 el juego
   listaProcesosDisponibles[valorTokenViajero]=token;
   listaProcesosDisponibles[cantidadProcesosActivos]=cantidadDeProcesos;
-  vidaProceso=listaProcesosDisponibles[cantidadProcesosActivos];
+  cantidadProcesosVivos=listaProcesosDisponibles[cantidadProcesosActivos];
 
   //////////////////////////////////
 
@@ -191,9 +191,9 @@ int main(int argc, char **argv) {
   	if (listaProcesosDisponibles[valorTurno]==idProceso){
 		listaProcesosDisponibles[valorTurno]=vecino[derecho];
 
-		if (listaProcesosDisponibles[idProceso]==1&&vidaProceso!=1){ //Si es que estoy habilitado para jugar
+		if (listaProcesosDisponibles[idProceso]==1&&cantidadProcesosVivos!=1){ //Si es que estoy habilitado para jugar
 			if (listaProcesosDisponibles[valorTokenViajero]<0){ //Tengo que empezar el juego de nuevo!
-				listaProcesosDisponibles[valorTokenViajero]=token-numeroAleatorio(token);
+				listaProcesosDisponibles[valorTokenViajero]=token-numeroAleatorio(token); //Aqui podria ser: token / token-numeroAleatorio(token) / numeroAleatorio
 				cout <<"proceso "<<idProceso<<" tiene la papa con valor "<<listaProcesosDisponibles[valorTokenViajero]<< endl;
 			}
 
@@ -218,7 +218,7 @@ int main(int argc, char **argv) {
   		MPI_Issend(listaProcesosDisponibles,tamListaProcesos,MPI_INT,vecino[derecho],mensajeTag,MPI_COMM_WORLD,&send_request);
   	}
 
-  	if (vidaProceso!=1){ //Mientras sea distinta a la condicion de borde, seguire recibiendo
+  	if (cantidadProcesosVivos!=1){ //Mientras sea distinta a la condicion de borde, seguire recibiendo
   		MPI_Recv(listaProcesosDisponibles,tamListaProcesos,MPI_INT,vecino[izquierdo],mensajeTag,MPI_COMM_WORLD,&recv_status);
   	}
 
@@ -229,7 +229,7 @@ int main(int argc, char **argv) {
 	}
 
 	//Caso excepcional, para evitar Deadlock cuando solo juegan 2 procesos //
-	if (vidaProceso==1&&cantidadDeProcesos==2){
+	if (cantidadProcesosVivos==1&&cantidadDeProcesos==2){
 		if (listaProcesosDisponibles[idProceso]==1){
 			//break;
    	  		for (int i=0;i<cantidadDeProcesos;i++){
@@ -242,10 +242,10 @@ int main(int argc, char **argv) {
 	}
 	//////////////////////////////////////////////////////////////////////////
 
-    if (vidaProceso==1){ //Si se cumple la condicion de borde
+    if (cantidadProcesosVivos==1){ //Si se cumple la condicion de borde
     	break;
     }
-    vidaProceso=listaProcesosDisponibles[cantidadProcesosActivos];
+    cantidadProcesosVivos=listaProcesosDisponibles[cantidadProcesosActivos];
 
   }//Fin While (cantidadDeProcesos!=1)
 

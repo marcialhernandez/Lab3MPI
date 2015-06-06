@@ -10,16 +10,15 @@ test:=./test
 #sources:=$(src)/entrada.cc
 
 #cxxflags:= -g -std=c++11 -Wall
-cxxflags:= -g -std=c++11 -Wall -O3
+cxxflags:= -g -std=c++0x -Wall -O3
 cxx:=mpic++
 #thread:=-lpthread
-simd:=-msse3
 
 includes:=-I./ -I./include -I../api/include
 libs:=-L./ -L./lib
 
 main: $(objects)
-	$(cxx) $(includes) $(libs) -o $(executable) $(executable).cc $(cxxflags) $(simd)
+	$(cxx) $(includes) $(libs) -o $(executable) $(executable).cc $(cxxflags)
 
 
 clean:
